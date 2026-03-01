@@ -114,11 +114,12 @@ app.use((req, res, next) => {
   // Port from env; default 5000 for local dev
   const port = parseInt(process.env.PORT || "5000", 10);
 
-  // IMPORTANT:
-  // On macOS (and with newer Node versions), binding to 0.0.0.0 with reusePort
-  // can throw ENOTSUP. For local dev, bind to localhost by default.
-  // You can override by setting HOST in .env (e.g. HOST=0.0.0.0 on Linux/Render).
-  const host = process.env.HOST || "127.0.0.1";
+  // Bind host automatically:
+  // • Local dev on Mac → 127.0.0.1 (avoids ENOTSUP)
+  // • Production (Render/Linux) → 0.0.0.0 (required for Render port scan)
+  const host =
+    process.env.HOST ||
+    (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
 
   httpServer.listen(port, host, () => {
     log(`serving on http://${host}:${port}`);
