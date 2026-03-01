@@ -1,26 +1,30 @@
-import { scrypt, randomBytes } from "crypto";
-import { promisify } from "util";
-import { storage } from "./storage";
-
-const scryptAsync = promisify(scrypt);
-
-async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
-}
+import { db } from "./storage";
+import { users } from "../shared/schema";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export async function seedAdminUser() {
-  const existing = await storage.getUserByUsername("admin");
-  if (existing) return;
+  try {
+    const existing = await db.select().from(users).where(eq(users.username, "admin"));
 
-  await storage.createUser({
-    username: "admin",
-    password: await hashPassword("admin123"),
-    name: "Pharmacy Admin",
-    email: "admin@remedypills.ca",
-    role: "admin",
-    provider: "local",
-  });
-  console.log("Default admin account created (username: admin, password: admin123)");
+    if (existing.length > 0) {
+      console.log("Admin user already exists");
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash("admin123", 10);
+
+    await db.insert(users).values({
+      fullName: "Administrator",
+      username: "admin",
+      password: hashedPassword,
+      email: "admin@remedypills.com",
+      phone: "",
+      role: "admin",
+    });
+
+    console.log("Admin user created");
+  } catch (err) {
+    console.error("Admin seed error:", err);
+  }
 }
