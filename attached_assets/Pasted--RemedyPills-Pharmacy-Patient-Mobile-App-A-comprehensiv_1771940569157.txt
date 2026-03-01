@@ -1,0 +1,208 @@
+# RemedyPills Pharmacy - Patient Mobile App
+
+A comprehensive mobile-responsive pharmacy web application for RemedyPills Pharmacy in Calgary, Canada. This React-based application provides patients with prescription management, appointment booking, secure pharmacist chat, medication reminders, rewards program, and health education content.
+
+## Features
+
+### A) Prescription Management
+- **Refill Requests**: Request prescription refills with status tracking (Submitted → Processing → Ready → Completed)
+- **Prescription History**: View active and past medications with details
+- **Dosage Reminders**: Set medication reminders with snooze options and adherence tracking
+
+### B) Secure Communication
+- **Chat with Pharmacist**: In-app secure messaging with category selection
+- **Photo Uploads**: Support for prescription images and insurance documents (UI ready)
+
+### C) Appointment Booking
+- **Vaccinations & Consultations**: Book flu shots, COVID boosters, travel consultations, medication reviews
+- **Calendar Integration**: Appointment scheduling with reminders
+
+### D) Health & Wellness Hub
+- **Educational Content**: Health articles and tips from pharmacists
+- **Personalized Recommendations**: Content based on medications and conditions
+
+### E) Push Notifications
+- Refill reminders, prescription ready alerts, appointment notifications
+
+### F) Loyalty & Rewards
+- Points system (1 pt/$1 spent)
+- QR code membership card
+- Reward redemption options
+
+### G) User Profile
+- Personal information management
+- Family profiles support (UI structure)
+- Insurance information storage
+- Language preferences (English, Urdu, Punjabi, Tagalog)
+
+### H) Store Locator
+- Find RemedyPills locations in Calgary
+- Hours, directions, and contact information
+
+### I) Emergency Services
+- Prominent emergency disclaimer ("Call 911 for emergencies")
+- After-hours information
+
+## Technical Stack
+
+- **Frontend**: React 19 + TypeScript
+- **Styling**: Tailwind CSS 4
+- **Build Tool**: Vite 7
+- **Icons**: Custom SVG components
+- **State Management**: React Hooks (useState, useEffect)
+
+## Project Structure
+
+```
+src/
+├── App.tsx          # Main application component with all features
+├── main.tsx         # Application entry point
+├── index.css        # Global styles and Tailwind imports
+└── utils/
+    └── cn.ts        # Utility for merging Tailwind classes
+```
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+### Development
+
+The app runs on `http://localhost:5173` by default. The development server includes:
+- Hot Module Replacement (HMR)
+- TypeScript type checking
+- Tailwind CSS processing
+
+## Key Design Decisions
+
+### Mobile-First Approach
+- Designed as a mobile app experience with bottom navigation
+- Touch-friendly 44pt tap targets
+- Responsive breakpoints for tablet/desktop viewing
+
+### Accessibility (WCAG 2.1 AA)
+- Semantic HTML structure
+- ARIA labels on interactive elements
+- Keyboard navigation support
+- Focus visible indicators
+- Screen reader compatible
+- Reduced motion support
+
+### Security & Privacy
+- Emergency disclaimer on first launch
+- No PHI in mock data or logs
+- Consent-based flows (UI structure)
+
+### Internationalization
+- RTL support for Urdu/Shahmukhi
+- Language selection in profile
+- Prepared for full i18n implementation
+
+## PWA Support
+
+The app includes PWA configuration for:
+- Install to home screen
+- Offline capability (service worker ready)
+- Push notification support (UI ready)
+- Theme color matching app branding
+
+## Mock Data
+
+The application includes realistic mock data for demonstration:
+- 3 sample prescriptions with various statuses
+- 3 medication reminders
+- 1 upcoming appointment
+- 2 pharmacy locations in Calgary
+- 3 health articles
+- Rewards points history
+
+## Customization
+
+### Branding
+Primary colors can be customized in Tailwind config:
+- Primary: Teal (#0d9488)
+- Secondary: Violet (#7c3aed)
+- Accent: Emerald (#10b981)
+
+### Content
+Update mock data in `App.tsx` to match real pharmacy information:
+- Prescription data (lines 36-70)
+- Locations (lines 114-129)
+- Health articles (lines 144-162)
+
+## Future Enhancements
+
+For production deployment, consider:
+
+1. **Backend Integration**
+   - FastAPI/Python backend
+   - MongoDB database
+   - WebSocket for real-time chat
+   - Push notification service (FCM/APNs)
+
+2. **Authentication**
+   - Email/password login
+   - Social login (Apple/Google)
+   - Biometric authentication
+   - JWT token management
+
+3. **Mobile Native**
+   - React Native/Expo migration
+   - Capacitor integration for PWA-to-native
+   - Native device features (camera, calendar, maps)
+
+4. **Additional Features**
+   - Family profile management
+   - Insurance card OCR
+   - Medication interaction checking
+   - Prescription barcode scanning
+
+## Compliance Notes
+
+This demo application includes:
+- ✅ Emergency disclaimer
+- ✅ Privacy policy links (UI)
+- ✅ Terms of use references
+- ✅ Accessibility considerations
+- ✅ PHI handling warnings
+
+For production, ensure:
+- PIPEDA compliance for Canadian health data
+- Alberta Health Information Act compliance
+- SSL/TLS encryption
+- Audit logging
+- Data retention policies
+
+## Browser Support
+
+- iOS Safari 14+
+- Chrome Android 90+
+- Chrome Desktop 90+
+- Safari Desktop 14+
+- Firefox 88+
+
+## License
+
+© 2024 RemedyPills Pharmacy. All rights reserved.
+
+## Contact
+
+For support or inquiries (update to match remedypills.ca):
+- Website: https://www.remedypills.ca
+- Phone: [Insert main pharmacy phone from remedypills.ca]
+- Email: [Insert main contact email from remedypills.ca]
