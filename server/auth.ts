@@ -190,6 +190,7 @@ export function setupAuth(app: Express) {
             });
             done(null, user);
           } catch (err) {
+            console.error("Google OAuth error:", err);
             done(err as Error);
           }
         },
@@ -344,11 +345,25 @@ export function setupAuth(app: Express) {
 
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
-    app.get(
-      "/api/auth/google/callback",
-      passport.authenticate("google", { failureRedirect: "/auth" }),
-      socialCallback,
-    );
+    app.get("/api/auth/google/callback", (req, res, next) => {
+      passport.authenticate("google", (err: any, user: any, info: any) => {
+        if (err) {
+          console.error("Google callback error:", err);
+          return res.redirect("/auth?error=google_error");
+        }
+        if (!user) {
+          console.warn("Google callback failed:", info);
+          return res.redirect("/auth?error=google_failed");
+        }
+        req.login(user, (loginErr: any) => {
+          if (loginErr) {
+            console.error("Login after Google failed:", loginErr);
+            return res.redirect("/auth?error=google_login");
+          }
+          socialCallback(req, res);
+        });
+      })(req, res, next);
+    });
   } else {
     app.get("/api/auth/google", (_req, res) => res.redirect("/auth"));
     app.get("/api/auth/google/callback", (_req, res) => res.redirect("/auth"));
@@ -356,11 +371,25 @@ export function setupAuth(app: Express) {
 
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     app.get("/api/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
-    app.get(
-      "/api/auth/facebook/callback",
-      passport.authenticate("facebook", { failureRedirect: "/auth" }),
-      socialCallback,
-    );
+    app.get("/api/auth/facebook/callback", (req, res, next) => {
+      passport.authenticate("facebook", (err: any, user: any, info: any) => {
+        if (err) {
+          console.error("Facebook callback error:", err);
+          return res.redirect("/auth?error=facebook_error");
+        }
+        if (!user) {
+          console.warn("Facebook callback failed:", info);
+          return res.redirect("/auth?error=facebook_failed");
+        }
+        req.login(user, (loginErr: any) => {
+          if (loginErr) {
+            console.error("Login after Facebook failed:", loginErr);
+            return res.redirect("/auth?error=facebook_login");
+          }
+          socialCallback(req, res);
+        });
+      })(req, res, next);
+    });
   } else {
     app.get("/api/auth/facebook", (_req, res) => res.redirect("/auth"));
     app.get("/api/auth/facebook/callback", (_req, res) => res.redirect("/auth"));

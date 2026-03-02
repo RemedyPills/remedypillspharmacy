@@ -174,7 +174,7 @@ export async function registerRoutes(
 
     const booked = await storage.getAppointmentsByDate(date);
     const bookedTimes = new Set(
-      booked.filter(a => a.status !== "cancelled").map(a => a.time)
+      booked.filter((a: any) => a.status !== "cancelled").map((a: any) => a.time)
     );
 
     const now = new Date();
@@ -322,7 +322,7 @@ export async function registerRoutes(
   // ── Admin: All data ────────────────────────────────────────
   app.get("/api/admin/users", requireAdmin, async (_req, res) => {
     const data = await storage.getAllUsers();
-    const safe = data.map(({ password, ...rest }) => rest);
+    const safe = data.map(({ password, ...rest }: any) => rest);
     res.json(safe);
   });
 
@@ -432,10 +432,10 @@ export async function registerRoutes(
     let targetUsers: string[] = userIds;
     if (!targetUsers || targetUsers.length === 0) {
       const allUsers = await storage.getAllUsers();
-      targetUsers = allUsers.filter(u => u.role === "patient").map(u => u.id);
+      targetUsers = allUsers.filter((u: any) => u.role === "patient").map((u: any) => u.id);
     }
 
-    const created = [];
+    const created: any[] = [];
     for (const userId of targetUsers) {
       const n = await storage.createNotification({
         userId,
@@ -457,8 +457,8 @@ export async function registerRoutes(
       res.json(data);
     } else {
       const allUsers = await storage.getAllUsers();
-      const patients = allUsers.filter(u => u.role === "patient");
-      const allLogs = [];
+      const patients = allUsers.filter((u: any) => u.role === "patient");
+      const allLogs: any[] = [];
       for (const p of patients) {
         const logs = await storage.getHealthLogsByUser(p.id);
         allLogs.push(...logs);
@@ -562,13 +562,12 @@ export async function registerRoutes(
 
     const allUsers = await storage.getAllUsers();
     const patientsWithPhone = allUsers
-      .filter((u) => {
-        if (u.role !== "patient" || !u.phone || u.phone.trim().length === 0) return false;
-        if (Array.isArray(patientIds) && patientIds.length > 0) return patientIds.includes(u.id);
-        return true;
-      })
-      .map((u) => ({ userId: u.id, phone: u.phone! }));
-
+        .filter((u: any) => {
+          if (u.role !== "patient" || !u.phone || u.phone.trim().length === 0) return false;
+          if (Array.isArray(patientIds) && patientIds.length > 0) return patientIds.includes(u.id);
+          return true;
+        })
+        .map((u: any) => ({ userId: u.id, phone: u.phone! }));
     if (patientsWithPhone.length === 0) {
       return res.status(404).json({ message: "No patients with phone numbers found" });
     }

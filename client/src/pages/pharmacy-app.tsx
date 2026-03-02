@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, useCallback, useRef, type FormEvent } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, type FormEvent, lazy, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast, toast } from "@/hooks/use-toast";
 import { Redirect } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -52,9 +53,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart,
-} from "recharts";
+const LazyChart = lazy(() => import("@/components/ui/charts.lazy"));
 
 interface Prescription {
   id: string;
@@ -586,8 +585,8 @@ export default function PharmacyApp() {
   const needsReminders = activeTab === "home" || activeTab === "reminders";
   const { data: prescriptions = [] } = useQuery<Prescription[]>({ queryKey: ["/api/prescriptions"], enabled: needsRx, staleTime: 30_000 });
   const { data: reminders = [] } = useQuery<Reminder[]>({ queryKey: ["/api/reminders"], enabled: needsReminders, staleTime: 30_000 });
-  const { data: appointments = [] } = useQuery<Appointment[]>({ queryKey: ["/api/appointments"], enabled: activeTab === "home" || activeTab === "care", staleTime: 30_000 });
-  const { data: messages = [] } = useQuery<Message[]>({ queryKey: ["/api/messages"], enabled: activeTab === "chat", staleTime: 10_000 });
+  const { data: appointments = [] } = useQuery<Appointment[]>({ queryKey: ["/api/appointments"], enabled: activeTab === "home" || activeTab === "appointments", staleTime: 30_000 });
+  const { data: messages = [] } = useQuery<Message[]>({ queryKey: ["/api/messages"], enabled: showChatModal, staleTime: 10_000 });
   const { data: appNotifications = [] } = useQuery<AppNotification[]>({ queryKey: ["/api/notifications"], staleTime: 30_000 });
   const { data: healthLogs = [] } = useQuery<HealthLog[]>({ queryKey: ["/api/health-logs"], enabled: activeTab === "health", staleTime: 30_000 });
 
@@ -1847,16 +1846,9 @@ function HealthTab({
             <div className="space-y-4">
               {bpChartData.length > 1 ? (
                 <div className="h-[250px] w-full" data-testid="chart-blood-pressure">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={bpChartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="systolic" stroke="hsl(0, 80%, 55%)" strokeWidth={2} name="Systolic" dot={{ r: 3 }} />
-                      <Line type="monotone" dataKey="diastolic" stroke="hsl(210, 80%, 55%)" strokeWidth={2} name="Diastolic" dot={{ r: 3 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<div className="h-full" />}>
+                    <LazyChart type="bp" data={bpChartData} />
+                  </Suspense>
                 </div>
               ) : (
                 <p className="py-8 text-center text-sm text-muted-foreground">Log at least 2 blood pressure readings to see trends.</p>
@@ -1872,15 +1864,9 @@ function HealthTab({
             <div className="space-y-4">
               {sugarChartData.length > 1 ? (
                 <div className="h-[250px] w-full" data-testid="chart-blood-sugar">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sugarChartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Area type="monotone" dataKey="value" stroke="hsl(210, 80%, 55%)" fill="hsl(210, 80%, 55%)" fillOpacity={0.1} strokeWidth={2} name="Blood Sugar" />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<div className="h-full" />}>
+                    <LazyChart type="sugar" data={sugarChartData} />
+                  </Suspense>
                 </div>
               ) : (
                 <p className="py-8 text-center text-sm text-muted-foreground">Log at least 2 blood sugar readings to see trends.</p>
@@ -1896,15 +1882,9 @@ function HealthTab({
             <div className="space-y-4">
               {hrChartData.length > 1 ? (
                 <div className="h-[250px] w-full" data-testid="chart-heart-rate">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={hrChartData}>
-                      <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Line type="monotone" dataKey="value" stroke="hsl(350, 80%, 55%)" strokeWidth={2} name="Heart Rate" dot={{ r: 3 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <Suspense fallback={<div className="h-full" />}>
+                    <LazyChart type="hr" data={hrChartData} />
+                  </Suspense>
                 </div>
               ) : (
                 <p className="py-8 text-center text-sm text-muted-foreground">Log at least 2 heart rate readings to see trends.</p>
@@ -2072,15 +2052,9 @@ function CalorieTracker() {
 
       {last7Days.some(d => d.calories > 0) && (
         <div className="h-[180px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={last7Days}>
-              <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => [`${v} kcal`, "Calories"]} />
-              <Area type="monotone" dataKey="calories" stroke="hsl(25, 95%, 53%)" fill="hsl(25, 95%, 53%)" fillOpacity={0.15} strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+          <Suspense fallback={<div className="h-full" />}>
+            <LazyChart type="calories" data={last7Days} />
+          </Suspense>
         </div>
       )}
 

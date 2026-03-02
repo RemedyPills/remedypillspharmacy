@@ -74,6 +74,14 @@ export default function AuthPage() {
   };
 
   const handleSocialLogin = (provider: string) => {
+    if (!providers) {
+      alert("Social providers not loaded yet. Please try again.");
+      return;
+    }
+    if (!providers[provider as "google" | "facebook"]) {
+      alert(`${provider} login is not enabled on this server.`);
+      return;
+    }
     window.location.href = `/api/auth/${provider}`;
   };
 
@@ -163,6 +171,8 @@ export default function AuthPage() {
                 className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 text-sm font-medium text-white transition hover:bg-white/10"
                 onClick={() => handleSocialLogin("google")}
                 data-testid="button-google-login"
+                disabled={providers ? !providers.google : false}
+                title={providers && !providers.google ? "Google sign-in not configured" : undefined}
               >
                 <GoogleIcon />
                 Continue with Google
@@ -172,6 +182,8 @@ export default function AuthPage() {
                 className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 text-sm font-medium text-white transition hover:bg-white/10"
                 onClick={() => handleSocialLogin("facebook")}
                 data-testid="button-facebook-login"
+                disabled={providers ? !providers.facebook : false}
+                title={providers && !providers.facebook ? "Facebook sign-in not configured" : undefined}
               >
                 <FacebookIcon />
                 Continue with Facebook
@@ -252,7 +264,7 @@ export default function AuthPage() {
         <button
           type="button"
           className="grid h-10 w-10 place-items-center rounded-full text-white/60 transition hover:bg-white/10 hover:text-white"
-          onClick={() => setScreen("welcome")}
+          onClick={() => setScreen("landing")}
           data-testid="button-back"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -275,6 +287,8 @@ export default function AuthPage() {
               className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 text-sm font-medium text-white transition hover:bg-white/10"
               onClick={() => handleSocialLogin("google")}
               data-testid="button-google-register"
+              disabled={providers ? !providers.google : false}
+              title={providers && !providers.google ? "Google sign-in not configured" : undefined}
             >
               <GoogleIcon />
               Sign up with Google
@@ -284,6 +298,8 @@ export default function AuthPage() {
               className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 text-sm font-medium text-white transition hover:bg-white/10"
               onClick={() => handleSocialLogin("facebook")}
               data-testid="button-facebook-register"
+              disabled={providers ? !providers.facebook : false}
+              title={providers && !providers.facebook ? "Facebook sign-in not configured" : undefined}
             >
               <FacebookIcon />
               Sign up with Facebook

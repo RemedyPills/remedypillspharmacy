@@ -50,9 +50,14 @@ High level:
    - OAuth keys if you enable Google/Facebook sign-in
 4. Build & start:
    - Build command: `npm install && npm run build`
-   - Start command: `npm start`
+   - Start command (recommended): `npm run deploy`
 
-After deployment, run `npm run db:push` locally against the Render DB only if you know what you’re doing—normally you’ll run schema migrations as part of your release process.
+Notes for Render (recommended):
+- Set the Web Service **Start Command** to `npm run deploy` so Render will run migrations first (if `DATABASE_URL` is set) and then start the server.
+- Ensure `DATABASE_URL` and other secrets are set in Render environment settings.
+- If you prefer running migrations separately, keep `npm start` as the start command and run `npm run migrate` in a pre-deploy job or CI step.
+
+After deployment, avoid running `npm run db:push` manually against the Render DB unless you understand the impact; use the `deploy` script or CI-based migration runs for production.
 
 ## Security notes
 - Never commit `.env` (secrets).
