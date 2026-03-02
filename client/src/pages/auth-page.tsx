@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import remedyLogo from "@assets/Remedypills_logo_1_1771941028931.png";
 import heroImage from "@assets/WhatsApp_Image_2026-02-24_at_23.04.48_1772000003452.jpeg";
+import { FacebookLoginButton } from "@/components/facebook-login-button";
 
 function GoogleIcon() {
   return (
@@ -177,17 +178,9 @@ export default function AuthPage() {
                 <GoogleIcon />
                 Continue with Google
               </button>
-              <button
-                type="button"
+              <FacebookLoginButton
                 className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 text-sm font-medium text-white transition hover:bg-white/10"
-                onClick={() => handleSocialLogin("facebook")}
-                data-testid="button-facebook-login"
-                disabled={providers ? !providers.facebook : false}
-                title={providers && !providers.facebook ? "Facebook sign-in not configured" : undefined}
-              >
-                <FacebookIcon />
-                Continue with Facebook
-              </button>
+              />
             </div>
 
             <div className="flex items-center gap-4">
@@ -293,17 +286,9 @@ export default function AuthPage() {
               <GoogleIcon />
               Sign up with Google
             </button>
-            <button
-              type="button"
+            <FacebookLoginButton
               className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 text-sm font-medium text-white transition hover:bg-white/10"
-              onClick={() => handleSocialLogin("facebook")}
-              data-testid="button-facebook-register"
-              disabled={providers ? !providers.facebook : false}
-              title={providers && !providers.facebook ? "Facebook sign-in not configured" : undefined}
-            >
-              <FacebookIcon />
-              Sign up with Facebook
-            </button>
+            />
           </div>
 
           <div className="flex items-center gap-4">

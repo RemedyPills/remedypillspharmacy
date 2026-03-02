@@ -359,4 +359,40 @@ export const storage = {
     const rows = await db.select().from(schema.promoBanners);
     return rows as any;
   },
+
+  // -------- Bulk deletion (for EU data deletion requests) --------
+  async deleteAllPrescriptionsByUser(userId: string) {
+    await db.delete(schema.prescriptions).where(eq(schema.prescriptions.userId, userId));
+    return true;
+  },
+
+  async deleteAllRemindersByUser(userId: string) {
+    await db.delete(schema.reminders).where(eq(schema.reminders.userId, userId));
+    return true;
+  },
+
+  async deleteAllAppointmentsByUser(userId: string) {
+    await db.delete(schema.appointments).where(eq(schema.appointments.userId, userId));
+    return true;
+  },
+
+  async deleteAllMessagesByUser(userId: string) {
+    await db.delete(schema.messages).where(eq(schema.messages.userId, userId));
+    return true;
+  },
+
+  async deleteAllNotificationsByUser(userId: string) {
+    await db.delete(schema.notifications).where(eq(schema.notifications.userId, userId));
+    return true;
+  },
+
+  async deleteAllHealthLogsByUser(userId: string) {
+    await db.delete(schema.healthLogs).where(eq(schema.healthLogs.userId, userId));
+    return true;
+  },
+
+  async deleteAllCalorieLogsByUser(userId: string) {
+    await db.delete(schema.calorieLogs).where(eq(schema.calorieLogs.userId, userId));
+    return true;
+  },
 };

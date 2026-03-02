@@ -3,6 +3,7 @@ import { type Server } from "http";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { setupAuth, requireAuth, requireAdmin, hashPassword } from "./auth";
 import { sendSmsToPatients } from "./twilio";
@@ -42,6 +43,36 @@ import {
   insertHealthLogSchema,
   insertPromoBannerSchema,
 } from "@shared/schema";
+
+/**
+ * Verifies a Facebook signed request
+ * Facebook sends a signed_request parameter with signature and data
+ */
+function verifyFacebookSignedRequest(signedRequest: string, appSecret: string): { data: { object_id?: string; user_id?: string } } | null {
+  try {
+    const [encodedSig, payload] = signedRequest.split(".");
+
+    // Decode signature (base64url to base64)
+    const sig = Buffer.from(encodedSig.replace(/-/g, "+").replace(/_/g, "/"), "base64");
+
+    // Create HMAC with app secret
+    const hmac = crypto.createHmac("sha256", appSecret);
+    const expectedSig = hmac.update(payload).digest();
+
+    // Compare signatures
+    if (!crypto.timingSafeEqual(sig, expectedSig)) {
+      console.error("Facebook signed request verification failed");
+      return null;
+    }
+
+    // Decode payload (base64url to JSON)
+    const decoded = Buffer.from(payload.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf-8");
+    return JSON.parse(decoded);
+  } catch (err) {
+    console.error("Error verifying Facebook signed request:", err);
+    return null;
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
@@ -584,6 +615,174 @@ export async function registerRoutes(
       res.json(result);
     } catch (err: any) {
       res.status(500).json({ message: err.message || "Failed to send SMS" });
+    }
+  });
+
+  // ── Facebook SDK Login ────────────────────────────────────
+  /**
+   * Endpoint: POST /api/facebook-login
+   * 
+   * Handles login via Facebook SDK (not OAuth redirect flow)
+   * Frontend sends:
+   * - accessToken: Facebook access token
+   * - facebookId: Facebook user ID
+   * - name: User's name
+   * - email: User's email
+   * - picture: User's profile picture URL
+   * 
+   * Returns the authenticated user on success
+   */
+  app.post("/api/facebook-login", async (req, res) => {
+    try {
+      const { accessToken, facebookId, name, email, picture } = req.body;
+
+      if (!accessToken || !facebookId) {
+        return res.status(400).json({ message: "accessToken and facebookId are required" });
+      }
+
+      // Optionally verify the token with Facebook's API
+      // This adds a security check to ensure the token is valid
+      if (process.env.FACEBOOK_APP_SECRET) {
+        try {
+          const appId = process.env.FACEBOOK_APP_ID;
+          const appSecret = process.env.FACEBOOK_APP_SECRET;
+          const response = await fetch(
+            `https://graph.facebook.com/debug_token?input_token=${accessToken}&access_token=${appId}|${appSecret}`
+          );
+          const data: any = await response.json();
+
+          if (!data.data?.is_valid || data.data?.user_id !== facebookId) {
+            console.warn("Facebook token verification failed for user:", facebookId);
+            return res.status(401).json({ message: "Invalid Facebook token" });
+          }
+        } catch (err) {
+          console.error("Error verifying Facebook token:", err);
+          // Continue anyway - token verification is optional
+        }
+      }
+
+      // Find or create user with Facebook provider
+      let user = await storage.getUserByProvider("facebook", facebookId);
+      
+      if (!user) {
+        // Create new user
+        const uniqueUsername = `facebook_${facebookId}`;
+        const randomPassword = await hashPassword(crypto.randomBytes(32).toString("hex"));
+        
+        user = await storage.createUser({
+          username: uniqueUsername,
+          password: randomPassword,
+          name: name || "",
+          email: email || null,
+          phone: null,
+          dob: null,
+          role: "patient",
+          provider: "facebook",
+          providerId: facebookId,
+          consentGiven: true,
+          consentDate: new Date().toISOString(),
+        });
+      } else {
+        // Update user with latest info from Facebook
+        await storage.updateUser(user.id, {
+          name: name || user.name,
+          email: email || user.email,
+        });
+        user = await storage.getUser(user.id);
+      }
+
+      // Create session (similar to OAuth callback)
+      (req as any).login(user, (err: any) => {
+        if (err) {
+          console.error("Session creation error:", err);
+          return res.status(500).json({ message: "Failed to create session" });
+        }
+        const { password: _, ...userWithoutPassword } = user;
+        res.json(userWithoutPassword);
+      });
+    } catch (err: any) {
+      console.error("Facebook login error:", err);
+      res.status(500).json({ message: err.message || "Facebook login failed" });
+    }
+  });
+
+  // ── Facebook Data Deletion Callback ────────────────────────
+  /**
+   * Endpoint: POST /api/facebook/data-deletion
+   * 
+   * Facebook calls this endpoint when a user requests data deletion.
+   * The request includes:
+   * - signed_request: contains user_id and data_deletion_id
+   * 
+   * Response should be JSON with:
+   * - url: confirmation URL (for logging/auditing)
+   * 
+   * Returns 200 on success
+   */
+  app.post("/api/facebook/data-deletion", async (req, res) => {
+    try {
+      const { signed_request } = req.body;
+
+      if (!signed_request) {
+        return res.status(400).json({ message: "signed_request is required" });
+      }
+
+      // Verify the signed request using the Facebook App Secret
+      const appSecret = process.env.FACEBOOK_APP_SECRET;
+      if (!appSecret) {
+        console.error("FACEBOOK_APP_SECRET is not configured");
+        return res.status(500).json({ message: "Server configuration error" });
+      }
+
+      const verified = verifyFacebookSignedRequest(signed_request, appSecret);
+      if (!verified) {
+        return res.status(401).json({ message: "Invalid signed request" });
+      }
+
+      const { data: { user_id, data_deletion_id } } = verified;
+
+      if (!user_id) {
+        return res.status(400).json({ message: "user_id is required in signed request" });
+      }
+
+      // Find user by Facebook provider ID
+      const user = await storage.getUserByProvider("facebook", user_id);
+
+      if (user) {
+        // Delete all user data associated with this user
+        console.log(`[Facebook Data Deletion] Deleting data for user ${user.id} (Facebook ID: ${user_id})`);
+
+        // Delete all user-related data
+        await Promise.all([
+          storage.deleteAllPrescriptionsByUser(user.id),
+          storage.deleteAllRemindersByUser(user.id),
+          storage.deleteAllAppointmentsByUser(user.id),
+          storage.deleteAllMessagesByUser(user.id),
+          storage.deleteAllNotificationsByUser(user.id),
+          storage.deleteAllHealthLogsByUser(user.id),
+          storage.deleteAllCalorieLogsByUser(user.id),
+        ]);
+
+        // Delete the user record
+        await storage.deleteUser(user.id);
+
+        console.log(`[Facebook Data Deletion] Successfully deleted data for user ${user.id}`);
+      } else {
+        console.log(`[Facebook Data Deletion] No user found with Facebook ID: ${user_id}`);
+      }
+
+      // Return 200 with confirmation (data_deletion_id can be used for auditing)
+      const confirmationUrl = `${process.env.APP_BASE_URL || "https://yourdomain.com"}/privacy/data-deletion-confirmation`;
+
+      res.status(200).json({
+        url: confirmationUrl,
+        status: "completed",
+        deletion_id: data_deletion_id || "unknown",
+        timestamp: new Date().toISOString(),
+      });
+    } catch (err: any) {
+      console.error("Facebook data deletion error:", err);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 

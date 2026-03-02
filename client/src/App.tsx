@@ -11,6 +11,7 @@ import NotFound from "@/pages/not-found";
 const PharmacyApp = lazy(() => import("@/pages/pharmacy-app"));
 const AuthPage = lazy(() => import("@/pages/auth-page"));
 const AdminPage = lazy(() => import("@/pages/admin-page"));
+const PrivacyPage = lazy(() => import("@/pages/privacy-page"));
 
 function PageLoader() {
   return (
@@ -27,6 +28,7 @@ function Router() {
         <ProtectedRoute path="/" component={PharmacyApp} />
         <ProtectedRoute path="/admin" component={AdminPage} />
         <Route path="/auth" component={AuthPage} />
+        <Route path="/privacy" component={PrivacyPage} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
