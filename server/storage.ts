@@ -1,13 +1,12 @@
 import "dotenv/config";
 import pg from "pg";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 import * as schema from "../shared/schema";
-
-// IMPORTANT: adjust this import name if your schema exports are different.
-// Most templates export `users` table from shared/schema.ts
-const { users } = schema as any;
+import type { InsertUser, User, InsertAuditLog } from "../shared/schema";
 
 const { Pool } = pg;
 
@@ -20,54 +19,84 @@ if (!connectionString) {
 
 const isProd = process.env.NODE_ENV === "production";
 
-// Render Postgres typically requires SSL.
-// Locally, SSL is usually not required.
+// Render Postgres usually needs SSL; local Postgres usually doesn't.
 export const pool = new Pool({
   connectionString,
   ssl: isProd ? { rejectUnauthorized: false } : undefined,
 });
 
+// Drizzle DB
 export const db = drizzle(pool, { schema });
 
-/**
- * Storage layer used by auth.ts/routes.ts
- * (they import: `import { storage } from "./storage";`)
- *
- * If later you add more tables (meds, appointments, etc),
- * add more methods here.
- */
-class DatabaseStorage {
-  async getUserByUsername(username: string) {
+// Session store (Postgres-backed)
+const PgSession = connectPg(session);
+
+export const sessionStore = new PgSession({
+  pool,
+  // Creates the "session" table automatically if missing
+  createTableIfMissing: true,
+});
+
+// What the rest of your app imports:
+export const storage = {
+  sessionStore,
+
+  // -------- Users --------
+  async getUser(id: string): Promise<User | null> {
+    const rows = await db.select().from(schema.users).where(eq(schema.users.id, id)).limit(1);
+    return rows[0] ?? null;
+  },
+
+  async getUserById(id: string): Promise<User | null> {
+    return this.getUser(id);
+  },
+
+  async getUserByUsername(username: string): Promise<User | null> {
     const rows = await db
       .select()
-      .from(users)
-      .where(eq(users.username, username))
+      .from(schema.users)
+      .where(eq(schema.users.username, username))
       .limit(1);
-
     return rows[0] ?? null;
-  }
+  },
 
-  async getUserById(id: number) {
-    const rows = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    return rows[0] ?? null;
-  }
-
-  async createUser(userData: any) {
-    // userData should match your schema (username, passwordHash, email, etc)
-    const rows = await db.insert(users).values(userData).returning();
-    return rows[0];
-  }
-
-  async updateUser(id: number, patch: any) {
+  async getUserByProvider(provider: string, providerId: string): Promise<User | null> {
     const rows = await db
-      .update(users)
-      .set(patch)
-      .where(eq(users.id, id))
-      .returning();
+      .select()
+      .from(schema.users)
+      .where(and(eq(schema.users.provider, provider), eq(schema.users.providerId, providerId)))
+      .limit(1);
     return rows[0] ?? null;
-  }
-}
+  },
 
-// ✅ THIS is what auth.ts/routes.ts expect:
-export const storage = new DatabaseStorage();
-export type { DatabaseStorage };
+  async createUser(data: InsertUser): Promise<User> {
+    const rows = await db.insert(schema.users).values(data).returning();
+    return rows[0];
+  },
+
+  async updateUser(id: string, patch: Partial<User>): Promise<User | null> {
+    const rows = await db.update(schema.users).set(patch).where(eq(schema.users.id, id)).returning();
+    return rows[0] ?? null;
+  },
+
+  async updateUserLoginTracking(
+    id: string,
+    patch: Partial<Pick<User, "failedLoginAttempts" | "lockedUntil" | "lastLoginAt">>,
+  ): Promise<User | null> {
+    return this.updateUser(id, patch as any);
+  },
+
+  async updateUserConsent(id: string, consentGiven: boolean): Promise<User | null> {
+    const patch: Partial<User> = {
+      consentGiven,
+      consentDate: consentGiven ? new Date().toISOString() : null,
+    };
+    return this.updateUser(id, patch);
+  },
+
+  // -------- Audit Logs --------
+  async createAuditLog(data: InsertAuditLog) {
+    const rows = await db.insert(schema.auditLogs).values(data).returning();
+    return rows[0];
+  },
+};

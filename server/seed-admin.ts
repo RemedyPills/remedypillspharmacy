@@ -1,29 +1,32 @@
-import { db } from "./storage";
-import { users } from "../shared/schema";
-import { eq } from "drizzle-orm";
-import bcrypt from "bcryptjs";
+import { storage } from "./storage";
+import { hashPassword } from "./auth";
 
 export async function seedAdminUser() {
   try {
-    const existing = await db.select().from(users).where(eq(users.username, "admin"));
-
-    if (existing.length > 0) {
+    const existing = await storage.getUserByUsername("admin");
+    if (existing) {
       console.log("Admin user already exists");
       return;
     }
 
-    const hashedPassword = await bcrypt.hash("admin123", 10);
-
-    await db.insert(users).values({
-      fullName: "Administrator",
+    await storage.createUser({
       username: "admin",
-      password: hashedPassword,
-      email: "admin@remedypills.com",
-      phone: "",
+      password: await hashPassword("admin123"),
+      name: "Administrator",
+      email: "admin@remedypills.ca",
+      phone: null,
+      dob: null,
       role: "admin",
+      provider: "local",
+      providerId: null,
+      consentGiven: true,
+      consentDate: new Date().toISOString(),
+      lastLoginAt: null,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
     });
 
-    console.log("Admin user created");
+    console.log("Admin user created: admin / admin123");
   } catch (err) {
     console.error("Admin seed error:", err);
   }
