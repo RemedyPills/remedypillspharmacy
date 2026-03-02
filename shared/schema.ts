@@ -161,3 +161,11 @@ export const promoBanners = pgTable("promo_banners", {
 export const insertPromoBannerSchema = createInsertSchema(promoBanners).omit({ id: true });
 export type InsertPromoBanner = z.infer<typeof insertPromoBannerSchema>;
 export type PromoBanner = typeof promoBanners.$inferSelect;
+export const session = pgTable("session", {
+  sid: varchar("sid").primaryKey(),
+  sess: text("sess").notNull(),
+  expire: text("expire").notNull(),
+});
+
+export const insertSessionSchema = createInsertSchema(session);
+export type SessionRow = typeof session.$inferSelect;

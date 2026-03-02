@@ -44,7 +44,12 @@ function getBaseUrl(): string {
 }
 
 function getClientIp(req: any): string {
-  return req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip || "unknown";
+  // Render sets x-forwarded-for. It can be a comma-separated list.
+  const xff = req.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.length > 0) {
+    return xff.split(",")[0].trim();
+  }
+  return req.ip || "unknown";
 }
 
 async function findOrCreateSocialUser(
@@ -75,8 +80,14 @@ async function findOrCreateSocialUser(
 }
 
 export function setupAuth(app: Express) {
+  if (!process.env.SESSION_SECRET) {
+    throw new Error(
+      "SESSION_SECRET is missing. Set SESSION_SECRET in Render Environment Variables (and .env locally).",
+    );
+  }
+
   const sessionSettings: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET!,
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
@@ -88,46 +99,74 @@ export function setupAuth(app: Express) {
     },
   };
 
+  // Render uses a proxy; needed for secure cookies in production
   app.set("trust proxy", 1);
+
   app.use(session(sessionSettings));
   app.use(passport.initialize());
   app.use(passport.session());
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return done(null, false, { message: "Invalid username or password" });
-      }
-
-      if (user.lockedUntil) {
-        const lockExpiry = new Date(user.lockedUntil);
-        if (lockExpiry > new Date()) {
-          const minutesLeft = Math.ceil((lockExpiry.getTime() - Date.now()) / 60000);
-          return done(null, false, { message: `Account locked. Try again in ${minutesLeft} minute${minutesLeft !== 1 ? "s" : ""}.` });
+      try {
+        const user = await storage.getUserByUsername(username);
+        if (!user) {
+          return done(null, false, { message: "Invalid username or password" });
         }
-        await storage.updateUserLoginTracking(user.id, { failedLoginAttempts: 0, lockedUntil: null });
-      }
 
-      if (!(await comparePasswords(password, user.password))) {
-        const attempts = (user.failedLoginAttempts || 0) + 1;
-        if (attempts >= MAX_FAILED_ATTEMPTS) {
-          const lockUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60000).toISOString();
-          await storage.updateUserLoginTracking(user.id, { failedLoginAttempts: attempts, lockedUntil: lockUntil });
-          return done(null, false, { message: `Too many failed attempts. Account locked for ${LOCKOUT_MINUTES} minutes.` });
+        if (user.lockedUntil) {
+          const lockExpiry = new Date(user.lockedUntil);
+          if (lockExpiry > new Date()) {
+            const minutesLeft = Math.ceil(
+              (lockExpiry.getTime() - Date.now()) / 60000,
+            );
+            return done(null, false, {
+              message: `Account locked. Try again in ${minutesLeft} minute${
+                minutesLeft !== 1 ? "s" : ""
+              }.`,
+            });
+          }
+          await storage.updateUserLoginTracking(user.id, {
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+          });
         }
-        await storage.updateUserLoginTracking(user.id, { failedLoginAttempts: attempts });
-        const remaining = MAX_FAILED_ATTEMPTS - attempts;
-        return done(null, false, { message: `Invalid password. ${remaining} attempt${remaining !== 1 ? "s" : ""} remaining.` });
+
+        if (!(await comparePasswords(password, user.password))) {
+          const attempts = (user.failedLoginAttempts || 0) + 1;
+          if (attempts >= MAX_FAILED_ATTEMPTS) {
+            const lockUntil = new Date(
+              Date.now() + LOCKOUT_MINUTES * 60000,
+            ).toISOString();
+            await storage.updateUserLoginTracking(user.id, {
+              failedLoginAttempts: attempts,
+              lockedUntil: lockUntil,
+            });
+            return done(null, false, {
+              message: `Too many failed attempts. Account locked for ${LOCKOUT_MINUTES} minutes.`,
+            });
+          }
+          await storage.updateUserLoginTracking(user.id, {
+            failedLoginAttempts: attempts,
+          });
+          const remaining = MAX_FAILED_ATTEMPTS - attempts;
+          return done(null, false, {
+            message: `Invalid password. ${remaining} attempt${
+              remaining !== 1 ? "s" : ""
+            } remaining.`,
+          });
+        }
+
+        await storage.updateUserLoginTracking(user.id, {
+          failedLoginAttempts: 0,
+          lockedUntil: null,
+          lastLoginAt: new Date().toISOString(),
+        });
+
+        return done(null, user);
+      } catch (err) {
+        return done(err as Error);
       }
-
-      await storage.updateUserLoginTracking(user.id, {
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        lastLoginAt: new Date().toISOString(),
-      });
-
-      return done(null, user);
     }),
   );
 
@@ -146,7 +185,9 @@ export function setupAuth(app: Express) {
               name: profile.displayName,
               email: profile.emails?.[0]?.value,
             });
-            await storage.updateUserLoginTracking(user.id, { lastLoginAt: new Date().toISOString() });
+            await storage.updateUserLoginTracking(user.id, {
+              lastLoginAt: new Date().toISOString(),
+            });
             done(null, user);
           } catch (err) {
             done(err as Error);
@@ -171,7 +212,9 @@ export function setupAuth(app: Express) {
               name: profile.displayName,
               email: profile.emails?.[0]?.value,
             });
-            await storage.updateUserLoginTracking(user.id, { lastLoginAt: new Date().toISOString() });
+            await storage.updateUserLoginTracking(user.id, {
+              lastLoginAt: new Date().toISOString(),
+            });
             done(null, user);
           } catch (err) {
             done(err as Error);
@@ -183,35 +226,44 @@ export function setupAuth(app: Express) {
 
   passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: string, done) => {
-    const user = await storage.getUser(id);
-    done(null, user);
+    try {
+      const user = await storage.getUser(id);
+      if (!user) return done(null, false);
+      done(null, user);
+    } catch (err) {
+      done(err as Error);
+    }
   });
 
   app.post("/api/register", async (req, res, next) => {
-    const existingUser = await storage.getUserByUsername(req.body.username);
-    if (existingUser) {
-      return res.status(400).send("Username already exists");
+    try {
+      const existingUser = await storage.getUserByUsername(req.body.username);
+      if (existingUser) {
+        return res.status(400).send("Username already exists");
+      }
+
+      const user = await storage.createUser({
+        ...req.body,
+        password: await hashPassword(req.body.password),
+        consentGiven: !!req.body.consentGiven,
+        consentDate: req.body.consentGiven ? new Date().toISOString() : null,
+      });
+
+      await storage.createAuditLog({
+        userId: user.id,
+        action: "account_created",
+        details: `Account created with consent: ${!!req.body.consentGiven}`,
+        ipAddress: getClientIp(req),
+        timestamp: new Date().toISOString(),
+      });
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        res.status(201).json(user);
+      });
+    } catch (err) {
+      next(err);
     }
-
-    const user = await storage.createUser({
-      ...req.body,
-      password: await hashPassword(req.body.password),
-      consentGiven: !!req.body.consentGiven,
-      consentDate: req.body.consentGiven ? new Date().toISOString() : null,
-    });
-
-    await storage.createAuditLog({
-      userId: user.id,
-      action: "account_created",
-      details: `Account created with consent: ${!!req.body.consentGiven}`,
-      ipAddress: getClientIp(req),
-      timestamp: new Date().toISOString(),
-    });
-
-    req.login(user, (err) => {
-      if (err) return next(err);
-      res.status(201).json(user);
-    });
   });
 
   app.post("/api/login", (req, res, next) => {
@@ -292,7 +344,11 @@ export function setupAuth(app: Express) {
 
   if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     app.get("/api/auth/google", passport.authenticate("google", { scope: ["profile", "email"] }));
-    app.get("/api/auth/google/callback", passport.authenticate("google", { failureRedirect: "/auth" }), socialCallback);
+    app.get(
+      "/api/auth/google/callback",
+      passport.authenticate("google", { failureRedirect: "/auth" }),
+      socialCallback,
+    );
   } else {
     app.get("/api/auth/google", (_req, res) => res.redirect("/auth"));
     app.get("/api/auth/google/callback", (_req, res) => res.redirect("/auth"));
@@ -300,7 +356,11 @@ export function setupAuth(app: Express) {
 
   if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
     app.get("/api/auth/facebook", passport.authenticate("facebook", { scope: ["email"] }));
-    app.get("/api/auth/facebook/callback", passport.authenticate("facebook", { failureRedirect: "/auth" }), socialCallback);
+    app.get(
+      "/api/auth/facebook/callback",
+      passport.authenticate("facebook", { failureRedirect: "/auth" }),
+      socialCallback,
+    );
   } else {
     app.get("/api/auth/facebook", (_req, res) => res.redirect("/auth"));
     app.get("/api/auth/facebook/callback", (_req, res) => res.redirect("/auth"));

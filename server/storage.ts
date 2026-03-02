@@ -29,12 +29,16 @@ export const pool = new Pool({
 export const db = drizzle(pool, { schema });
 
 // Session store (Postgres-backed)
+// IMPORTANT FIX:
+// - createTableIfMissing MUST be false in production builds on Render,
+//   because connect-pg-simple tries to read a table.sql file at runtime,
+//   which breaks after bundling (esbuild) and causes ENOENT.
 const PgSession = connectPg(session);
 
 export const sessionStore = new PgSession({
   pool,
-  // Creates the "session" table automatically if missing
-  createTableIfMissing: true,
+  tableName: "session",
+  createTableIfMissing: false,
 });
 
 // What the rest of your app imports:
@@ -43,7 +47,11 @@ export const storage = {
 
   // -------- Users --------
   async getUser(id: string): Promise<User | null> {
-    const rows = await db.select().from(schema.users).where(eq(schema.users.id, id)).limit(1);
+    const rows = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.id, id))
+      .limit(1);
     return rows[0] ?? null;
   },
 
@@ -75,7 +83,11 @@ export const storage = {
   },
 
   async updateUser(id: string, patch: Partial<User>): Promise<User | null> {
-    const rows = await db.update(schema.users).set(patch).where(eq(schema.users.id, id)).returning();
+    const rows = await db
+      .update(schema.users)
+      .set(patch)
+      .where(eq(schema.users.id, id))
+      .returning();
     return rows[0] ?? null;
   },
 
