@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, boolean, integer, real } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, boolean, integer, real, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -164,7 +164,7 @@ export type PromoBanner = typeof promoBanners.$inferSelect;
 export const session = pgTable("session", {
   sid: varchar("sid").primaryKey(),
   sess: text("sess").notNull(),
-  expire: text("expire").notNull(),
+  expire: timestamp("expire", { withTimezone: true, mode: "date" }).notNull(),
 });
 
 export const insertSessionSchema = createInsertSchema(session);
