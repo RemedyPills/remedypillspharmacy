@@ -325,6 +325,16 @@ function TopBar({
               <img src={remedyLogo} alt="RemedyPills" className="h-7 w-7 object-contain" data-testid="img-remedypills-logo" />
             </div>
           </button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-2xl text-white"
+            onClick={onLogout}
+            data-testid="button-user-logout"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign out
+          </Button>
         </div>
       </div>
     </header>
@@ -476,52 +486,19 @@ function TransferForm({ onSubmit, isPending }: { onSubmit: (data: TransferFormDa
 }
 
 function PrescriptionForm({ initial, onSubmit, isPending }: { initial?: Prescription; onSubmit: (data: Record<string, any>) => void; isPending: boolean }) {
-  const [name, setName] = useState(initial?.name || "");
-  const [strength, setStrength] = useState(initial?.strength || "");
-  const [directions, setDirections] = useState(initial?.directions || "");
   const [rxNumber, setRxNumber] = useState(initial?.rxNumber || "");
-  const [lastFillDate, setLastFillDate] = useState(initial?.lastFillDate || new Date().toISOString().split("T")[0]);
-  const [refillCount, setRefillCount] = useState(initial?.refillCount ?? 0);
-  const [familyMemberName, setFamilyMemberName] = useState(initial?.familyMemberName || "");
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    onSubmit({ name, strength, directions, rxNumber, lastFillDate, refillCount: Number(refillCount), familyMemberName: familyMemberName || null });
+    // only send rxNumber; other values are handled by parent defaults or patch logic
+    onSubmit({ rxNumber });
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3" data-testid="form-prescription">
       <div className="space-y-1">
-        <label className="text-xs font-semibold text-muted-foreground">Medication Name *</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Metformin" className="rounded-2xl" required data-testid="input-med-name" />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted-foreground">Strength *</label>
-          <Input value={strength} onChange={(e) => setStrength(e.target.value)} placeholder="e.g. 500mg" className="rounded-2xl" required data-testid="input-med-strength" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted-foreground">Rx Number *</label>
-          <Input value={rxNumber} onChange={(e) => setRxNumber(e.target.value)} placeholder="e.g. RX-12345" className="rounded-2xl" required data-testid="input-med-rx" />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-semibold text-muted-foreground">Directions *</label>
-        <Input value={directions} onChange={(e) => setDirections(e.target.value)} placeholder="e.g. Take 1 tablet twice daily" className="rounded-2xl" required data-testid="input-med-directions" />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted-foreground">Last Fill Date</label>
-          <Input type="date" value={lastFillDate} onChange={(e) => setLastFillDate(e.target.value)} className="rounded-2xl" data-testid="input-med-fill-date" />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-muted-foreground">Refills Remaining</label>
-          <Input type="number" min={0} value={refillCount} onChange={(e) => setRefillCount(Number(e.target.value))} className="rounded-2xl" data-testid="input-med-refills" />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-semibold text-muted-foreground">Family Member (leave blank if for you)</label>
-        <Input value={familyMemberName} onChange={(e) => setFamilyMemberName(e.target.value)} placeholder="e.g. Spouse name" className="rounded-2xl" data-testid="input-med-family" />
+        <label className="text-xs font-semibold text-muted-foreground">Rx Number *</label>
+        <Input value={rxNumber} onChange={(e) => setRxNumber(e.target.value)} placeholder="e.g. RX-12345" className="rounded-2xl" required data-testid="input-med-rx" />
       </div>
       <Button type="submit" className="w-full rounded-2xl bg-[hsl(186,86%,30%)] hover:bg-[hsl(186,86%,25%)]" disabled={isPending} data-testid="button-save-medication">
         {isPending ? "Saving..." : initial ? "Update Medication" : "Add Medication"}
@@ -1008,7 +985,18 @@ export default function PharmacyApp() {
         <DialogContent className="max-w-md rounded-3xl" data-testid="modal-add-medication">
           <DialogHeader><DialogTitle>Add Medication</DialogTitle></DialogHeader>
           <PrescriptionForm
-            onSubmit={(data) => { addPrescriptionMutation.mutate(data); setShowAddMedModal(false); }}
+            onSubmit={(data) => {
+              // supply defaults needed by backend
+              addPrescriptionMutation.mutate({
+                ...data,
+                name: "",
+                strength: "",
+                directions: "",
+                lastFillDate: new Date().toISOString().split("T")[0],
+                refillCount: 0,
+              });
+              setShowAddMedModal(false);
+            }}
             isPending={addPrescriptionMutation.isPending}
           />
         </DialogContent>

@@ -21,14 +21,15 @@ const LOCKOUT_MINUTES = 15;
 const SESSION_MAX_AGE = 30 * 60 * 1000;
 
 export async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
+  const salt = randomBytes(16);
   const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+  return `${buf.toString("hex")}.${salt.toString("hex")}`;
 }
 
 async function comparePasswords(supplied: string, stored: string) {
-  const [hashed, salt] = stored.split(".");
+  const [hashed, saltHex] = stored.split(".");
   const hashedBuf = Buffer.from(hashed, "hex");
+  const salt = Buffer.from(saltHex, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
   return timingSafeEqual(hashedBuf, suppliedBuf);
 }

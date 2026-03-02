@@ -3,10 +3,10 @@ import { hashPassword } from "./auth";
 
 export async function seedAdminUser() {
   try {
+    // Delete existing admin user to regenerate with correct password hashing
     const existing = await storage.getUserByUsername("admin");
     if (existing) {
-      console.log("Admin user already exists");
-      return;
+      await storage.deleteUser(existing.id);
     }
 
     await storage.createUser({

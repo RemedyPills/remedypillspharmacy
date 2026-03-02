@@ -111,8 +111,8 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // Port from env; default 5000 for local dev
-  const port = parseInt(process.env.PORT || "5000", 10);
+  // Port from env; default 3000 for local dev (5000 conflicts with macOS AirTunes)
+  const port = parseInt(process.env.PORT || "3000", 10);
 
   // Bind host automatically:
   // • Local dev on Mac → 127.0.0.1 (avoids ENOTSUP)
