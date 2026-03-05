@@ -68,3 +68,15 @@ User: postgres.gnsdcvvguhssrimgtpjs
 3. Implement admin password change feature
 4. Add user search functionality to admin panel
 5. Deploy to production (Render/Vercel)
+
+### March 5, 2026 (Update 2)
+- ✅ Implemented Google OAuth via Emergent Auth
+- ✅ Disabled Facebook login (removed from UI)
+- ✅ Created AuthCallback component for handling OAuth redirect
+- ✅ Added /api/auth/emergent-callback endpoint for session exchange
+- ✅ All tests passing (95% backend, 100% frontend)
+
+## Authentication Methods
+1. **Username/Password** - Traditional login/registration
+2. **Google OAuth** - Via Emergent Auth (no credentials needed)
+3. ~~Facebook OAuth~~ - Disabled (can be re-enabled later)
