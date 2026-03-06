@@ -47,11 +47,37 @@ export const db = drizzle(pool, { schema });
 //   which breaks after bundling (esbuild) and causes ENOENT.
 const PgSession = connectPg(session);
 
+// Fix the session table on startup to ensure correct column types
+// This fixes "operator does not exist: text >= timestamp with time zone" error
+async function fixSessionTable() {
+  try {
+    console.log("[storage] Fixing session table if needed...");
+    await pool.query(`
+      DROP TABLE IF EXISTS "session" CASCADE;
+      CREATE TABLE "session" (
+        "sid" varchar NOT NULL COLLATE "default",
+        "sess" text NOT NULL COLLATE "default",
+        "expire" timestamp(6) NOT NULL,
+        PRIMARY KEY ("sid")
+      );
+      CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+    `);
+    console.log("[storage] Session table fixed successfully");
+  } catch (err) {
+    console.error("[storage] Error fixing session table:", err);
+  }
+}
+
 export const sessionStore = new PgSession({
   pool,
   tableName: "session",
   createTableIfMissing: false,
 });
+
+// Export a function to initialize the session table
+export async function initializeStorage() {
+  await fixSessionTable();
+}
 
 // What the rest of your app imports:
 export const storage = {

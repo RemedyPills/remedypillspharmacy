@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedAdminUser } from "./seed-admin";
+import { initializeStorage } from "./storage";
 import fs from "fs";
 import path from "path";
 
@@ -87,6 +88,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize storage and fix session table on startup
+  await initializeStorage();
+  
   await registerRoutes(httpServer, app);
   await seedAdminUser();
 
