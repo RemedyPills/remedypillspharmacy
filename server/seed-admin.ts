@@ -3,12 +3,14 @@ import { hashPassword } from "./auth";
 
 export async function seedAdminUser() {
   try {
-    // Delete existing admin user to regenerate with correct password hashing
+    // Check if admin already exists - skip seeding if already done
     const existing = await storage.getUserByUsername("admin");
     if (existing) {
-      await storage.deleteUser(existing.id);
+      console.log("Admin user already exists, skipping seed");
+      return;
     }
 
+    // Only create admin if it doesn't exist
     await storage.createUser({
       username: "admin",
       password: await hashPassword("admin123"),
