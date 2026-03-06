@@ -9,6 +9,10 @@ if [ -z "${DATABASE_URL:-}" ]; then
 else
   echo "[render-deploy] Running migrations (drizzle-kit push)"
   npm run migrate
+  
+  echo "[render-deploy] Fixing session table - dropping and recreating with correct timestamp(6) type"
+  # This fixes "operator does not exist: text >= timestamp with time zone" error
+  psql "$DATABASE_URL" -f migrations/fix_session_table.sql || true
 fi
 
 echo "[render-deploy] Starting server"
