@@ -164,7 +164,9 @@ export type PromoBanner = typeof promoBanners.$inferSelect;
 export const session = pgTable("session", {
   sid: varchar("sid").primaryKey(),
   sess: text("sess").notNull(),
-  expire: timestamp("expire", { withTimezone: true, mode: "date" }).notNull(),
+  // Use timestamp without timezone to match connect-pg-simple and the migration
+  // This fixes "operator does not exist: text >= timestamp with time zone" error
+  expire: timestamp("expire", { withTimezone: false, precision: 6 }).notNull(),
 });
 
 export const insertSessionSchema = createInsertSchema(session);
