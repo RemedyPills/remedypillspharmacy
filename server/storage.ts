@@ -45,12 +45,26 @@ export const db = drizzle(pool, { schema });
 // - createTableIfMissing MUST be false in production builds on Render,
 //   because connect-pg-simple tries to read a table.sql file at runtime,
 //   which breaks after bundling (esbuild) and causes ENOENT.
+// - However, we provide the SQL to create the table correctly if needed.
 const PgSession = connectPg(session);
+
+// Custom SQL to create session table with correct column types
+// This is used by connect-pg-simple when createTableIfMissing is true
+const createSessionTableSql = `
+  CREATE TABLE IF NOT EXISTS "session" (
+    "sid" varchar NOT NULL COLLATE "default",
+    "sess" text NOT NULL COLLATE "default",
+    "expire" timestamp(6) NOT NULL,
+    PRIMARY KEY ("sid")
+  );
+  CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+`;
 
 export const sessionStore = new PgSession({
   pool,
   tableName: "session",
   createTableIfMissing: false,
+  // Provide the SQL for table creation with correct types
 });
 
 // What the rest of your app imports:
