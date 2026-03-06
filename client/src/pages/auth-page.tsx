@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { Redirect } from "wouter";
@@ -44,6 +44,43 @@ export default function AuthPage() {
   const [consentGiven, setConsentGiven] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [oauthError, setOauthError] = useState<string | null>(null);
+
+  // Check for OAuth errors in URL query params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    const message = params.get("message");
+    
+    if (error) {
+      // Display the error message to the user
+      const errorMessage = message || getDefaultErrorMessage(error);
+      setOauthError(errorMessage);
+      
+      // Clear the error from URL to prevent showing it again on refresh
+      window.history.replaceState({}, "", "/auth");
+    }
+  }, []);
+
+  // Helper function to get default error messages
+  const getDefaultErrorMessage = (error: string): string => {
+    switch (error) {
+      case "google_error":
+        return "Google authentication failed. Please try again.";
+      case "google_failed":
+        return "Google sign-in was cancelled or failed.";
+      case "google_login":
+        return "Failed to create session after Google login.";
+      case "facebook_error":
+        return "Facebook authentication failed. Please try again.";
+      case "facebook_failed":
+        return "Facebook sign-in was cancelled or failed.";
+      case "facebook_login":
+        return "Failed to create session after Facebook login.";
+      default:
+        return "An authentication error occurred.";
+    }
+  };
 
   const { data: providers } = useQuery<{ google: boolean; facebook: boolean }>({
     queryKey: ["/api/auth/providers"],
@@ -167,6 +204,11 @@ export default function AuthPage() {
             </div>
 
             <div className="space-y-3">
+              {oauthError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                  <p className="text-xs text-red-400">{oauthError}</p>
+                </div>
+              )}
               <button
                 type="button"
                 className="flex h-12 w-full items-center justify-center gap-3 rounded-full border border-white/15 bg-white/5 text-sm font-medium text-white transition hover:bg-white/10"
